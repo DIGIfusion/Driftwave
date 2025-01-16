@@ -1,4 +1,4 @@
-These Python codes encompasses simple fluid plasma drift wave implementations. 
+These Python codes provide simple fluid plasma drift wave implementations. 
 
 The driftwave.py is simple electron drift wave with Boltzmann electrons. This 
 works quite well.

@@ -111,7 +111,9 @@ def fun(t, solution, T, n, Ln, Lt, B, m, q):
     dudt_abs = -cs**2*(dTz/T + dnz/n + q_Ez/(T*n))
     dudt =  (1/cs)*dudt_abs
     # Ion energy balance equation.
-    dTdt = -T*(2*cs*duz + ve*T/Lt)
+    dpdt = -(5.0/3.0)*T*cs*duz - ve*T*(1/Ln + 1/Lt) # This is dp/(n*dt)
+    dTdt = dpdt - T*dndt
+    #dTdt = -T*(2*cs*duz + ve*T/Lt) # This equation was not quite right. 
     # Force periodic boundary condition
     dndt[:,-1] = dndt[:,0]
     dndt[-1,:] = dndt[0,:]

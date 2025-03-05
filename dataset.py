@@ -1,13 +1,22 @@
+import os
 import torch
 from torch.utils.data import Dataset
+import pandas as pd
 
 class DriftwaveDataset(Dataset):
     def __init__(self):
-        self.input = torch.rand(50,3,requires_grad=True)
-        self.output = torch.rand(50,100)
+        self.list = [val for sublist in [[os.path.join(root,name) for name in file] for root, dir, file in os.walk("./NewDataset")] for val in sublist]
 
     def __len__(self):
-        return len(self.input)
+        return len(self.list)
 
     def __getitem__(self, index):
-        return self.input[index], self.output[index]
+        df = pd.read_csv(self.list[index])
+
+        Ky = df.iloc[0].loc['Ky']
+        Ln = df.iloc[0].loc['Ln']
+        Ts = df.iloc[0].loc['Ts']
+
+        sol = torch.tensor(df['sol']/1e17)
+
+        return torch.tensor([Ky,Ln,Ts], requires_grad=True).float(), sol.float()

@@ -1,16 +1,50 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, random_split
+from scipy.constants import pi
 from NN import NN
 from dataset import DriftwaveDataset 
+
+resolution = 100
+L_y = 1.0
+kygrid = torch.linspace(0, 2*pi*L_y, resolution)
+dky = torch.diff(kygrid)[0]/(2*pi*L_y)
 
 def dndt(X, pred):
     dndt = torch.zeros(len(pred),len(pred[0]))
 
     for sample in pred:
-        dndt[:,0] = dndt[:,0] + torch.autograd.grad(sample[0],X,retain_graph=True)[0][:,0]
-        
+        for i in range(len(pred[0])):
+            dndt[:,i] = dndt[:,i] + torch.autograd.grad(sample[i],X,retain_graph=True)[0][:,2] # For each sample in batch
+
+    dndt[:,-1]=dndt[:,0] # Periodic boundary condition
     return dndt
+
+def comp_phi_dy(phi, order=4):
+    dphidy = torch.zeros(len(phi),resolution)
+    if order==2:
+        dphidy[:,1:-1] = (phi[:,2:] - phi[:,0:-2])/(2*dky)
+        dphidy[:,0] = (phi[:,1] - phi[:,-2])/(2*dky)
+        dphidy[:,-1] = dphidy[:,0]
+    if order==4:
+        dphidy[:,2:-3] = (phi[:,0:-5] - 8*phi[:,1:-4] + 8*phi[:,3:-2] - phi[:,4:-1])/(12*dky)
+        dphidy[:,-3] = (phi[:,-5] - 8*phi[:,-4] + 8*phi[:,-2] - phi[:,0])/(12*dky)
+        dphidy[:,0] = (phi[:,-3] - 8*phi[:,-2] + 8*phi[:,1] - phi[:,2])/(12*dky)
+        dphidy[:,1] = (phi[:,-2] - 8*phi[:,0] + 8*phi[:,2] - phi[:,3])/(12*dky)
+        dphidy[:,-2] = (phi[:,-4] - 8*phi[:,-3] + 8*phi[:,0] - phi[:,1])/(12*dky)
+        dphidy[:,-1] = dphidy[:,0]
+    return dphidy
+
+def comp_phi(delta_n, T=100):
+    phi = T*delta_n
+    return phi
+
+def drift_X_grad(X, pred):
+    phi = comp_phi(pred)
+    dphidy = comp_phi_dy(phi) #electric field
+    drift_X_grad = (1./X[:,1]).unsqueeze(1)*dphidy #multiply by gradient
+    drift_X_grad[:,-1] = drift_X_grad[:,0] #periodic boundary condition
+    return drift_X_grad
 
 def train_loop(dataloader, model, loss_fn, optimizer, batch_size):
     size = len(dataloader.dataset)
@@ -18,7 +52,13 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size):
     total_loss = 0.0
     for batch, (X, y) in enumerate(dataloader):
         pred = model(X)
-        loss = loss_fn(pred,y)
+        loss_data = loss_fn(pred,y)
+
+        dn_dt = dndt(X, pred)
+        drift_term = drift_X_grad(X,pred)
+        loss_constraint = loss_fn(dn_dt,drift_term)
+
+        loss = loss_data + loss_constraint
 
         loss.backward()
         optimizer.step()
@@ -45,7 +85,7 @@ if __name__=='__main__':
 
     learning_rate = 2e-4
     N_epochs = 1000
-    batch_size = 500
+    batch_size = 100
 
     model = NN()
 

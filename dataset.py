@@ -17,6 +17,6 @@ class DriftwaveDataset(Dataset):
         Ln = df.iloc[0].loc['Ln']
         Ts = df.iloc[0].loc['Ts']
 
-        sol = torch.tensor(df['sol']/1e17)
+        sol = torch.tensor(df['sol']/1e19)
 
         return torch.tensor([Ky,Ln,Ts], requires_grad=True).float(), sol.float()

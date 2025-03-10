@@ -5,14 +5,14 @@ class NN(nn.Module):
     def __init__(self):
         super(NN, self).__init__()
 
-        self.linear1 = nn.Linear(3,20)
+        self.linear1 = nn.Linear(3,100)
         self.relu1 = nn.ReLU()
-        self.linear2 = nn.Linear(20,20)
+        self.linear2 = nn.Linear(100,100)
         self.relu2 = nn.ReLU()
-        self.linear3 = nn.Linear(20,20)
+        self.linear3 = nn.Linear(100,100)
         self.relu3 = nn.ReLU()
 
-        self.linear4 = nn.Linear(20,100)
+        self.linear4 = nn.Linear(100,100)
 
     def forward(self, x):
         x = self.linear1(x)

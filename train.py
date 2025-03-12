@@ -46,19 +46,23 @@ def drift_X_grad(X, pred):
     drift_X_grad[:,-1] = drift_X_grad[:,0] #periodic boundary condition
     return drift_X_grad
 
-def train_loop(dataloader, model, loss_fn, optimizer, batch_size):
+def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device):
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
     total_loss = 0.0
     for batch, (X, y) in enumerate(dataloader):
+        X = X.to(device)
+        y = y.to(device)
+
         pred = model(X)
         loss_data = loss_fn(pred,y)
 
-        dn_dt = dndt(X, pred)
-        drift_term = drift_X_grad(X,pred)
-        loss_constraint = loss_fn(dn_dt,drift_term)
+        #dn_dt = dndt(X, pred)
+        #drift_term = drift_X_grad(X,pred)
+        #loss_constraint = loss_fn(dn_dt,drift_term)
 
-        loss = loss_data + loss_constraint
+        #loss = loss_data + loss_constraint
+        loss = loss_data
 
         loss.backward()
         optimizer.step()
@@ -71,11 +75,14 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size):
     total_loss = total_loss/num_batches
     return total_loss
 
-def val_loop(dataloader, model, loss_fn):
+def val_loop(dataloader, model, loss_fn, device):
     num_batches = len(dataloader)
     val_loss = 0.0
     with torch.no_grad():
         for (X, y) in dataloader:
+            X = X.to(device)
+            y = y.to(device)
+
             pred = model(X)
             val_loss += loss_fn(pred, y).item()
     val_loss /= num_batches
@@ -83,17 +90,20 @@ def val_loop(dataloader, model, loss_fn):
 
 if __name__=='__main__':
 
-    learning_rate = 2e-4
-    N_epochs = 1000
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    learning_rate = 5e-3
+    N_epochs = 10000
     batch_size = 100
 
     model = NN()
+    model.to(device)
 
     dataset = DriftwaveDataset()
 
     training, val = random_split(dataset, [0.8,0.2])
 
-    train_dataloader = DataLoader(dataset = training, batch_size = batch_size, shuffle = True)
+    train_dataloader = DataLoader(dataset = training, batch_size = batch_size, shuffle = True, num_workers=7)
     val_dataloader = DataLoader(dataset = val, batch_size = batch_size, shuffle = False)
 
     loss_fn = nn.MSELoss()
@@ -101,7 +111,7 @@ if __name__=='__main__':
 
     for epoch in range(N_epochs):
         print(f"Epoch {epoch+1}\n---------------------")
-        train_loss = train_loop(train_dataloader, model, loss_fn, optimizer, batch_size)
+        train_loss = train_loop(train_dataloader, model, loss_fn, optimizer, batch_size, device)
         print(f"Total train loss: {train_loss}")
-        val_loss = val_loop(val_dataloader, model, loss_fn)
+        val_loss = val_loop(val_dataloader, model, loss_fn, device)
         print(f"Total validation loss: {val_loss}")

@@ -19,4 +19,4 @@ class DriftwaveDataset(Dataset):
 
         sol = torch.tensor(df['sol']/1e19)
 
-        return torch.tensor([Ky,Ln,Ts], requires_grad=True).float(), sol.float()
+        return torch.tensor([Ky,Ln,Ts]).float(), sol.float()

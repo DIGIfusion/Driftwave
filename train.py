@@ -88,7 +88,7 @@ def val_loop(dataloader, model, loss_fn, device):
     val_loss /= num_batches
     return val_loss
 
-def predict(dataset, model, device):
+def predict(dataset, model, path, device):
     with torch.no_grad():
         for (X, y) in dataset:
             X = X.to(device)
@@ -100,7 +100,7 @@ def predict(dataset, model, device):
 
             pred = model(X)
 
-            with open("predictions_5000epochs/Ky" + str(Ky) + "_Ln" + str(Ln) + "_Ts" + str(Ts) + ".dat", "w") as f:
+            with open(path + "/Ky" + str(Ky) + "_Ln" + str(Ln) + "_Ts" + str(Ts) + ".dat", "w") as f:
                 for i, term in enumerate(y):
                     f.write(str(i) + " " + str(term.item()) + " " + str(pred[i].item()) + "\n")
 
@@ -110,8 +110,10 @@ if __name__=='__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     learning_rate = 1e-4
-    N_epochs = 1000
+    N_epochs = 50
     batch_size = 100
+
+    pred_path = "predictions"
 
     model = NN()
     model.to(device)
@@ -133,4 +135,4 @@ if __name__=='__main__':
         val_loss = val_loop(val_dataloader, model, loss_fn, device)
         print(f"Total validation loss: {val_loss}")
 
-    predict(val, model, device)
+    predict(val, model, pred_path, device)

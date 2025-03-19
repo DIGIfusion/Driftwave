@@ -109,8 +109,8 @@ if __name__=='__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    learning_rate = 5e-5
-    N_epochs = 5000
+    learning_rate = 1e-4
+    N_epochs = 1000
     batch_size = 100
 
     model = NN()

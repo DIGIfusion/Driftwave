@@ -4,6 +4,8 @@ from torch.utils.data import DataLoader, random_split
 from scipy.constants import pi
 from NN import NN
 from dataset import DriftwaveDataset 
+import copy
+import os
 
 resolution = 100
 L_y = 1.0
@@ -70,7 +72,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device):
 
         loss, current = loss.item(), batch * batch_size + len(X)
         total_loss = total_loss + loss
-        print(f"Batch train loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+        #print(f"Batch train loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
 
     total_loss = total_loss/num_batches
     return total_loss
@@ -89,6 +91,9 @@ def val_loop(dataloader, model, loss_fn, device):
     return val_loss
 
 def predict(dataset, model, path, device):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
     with torch.no_grad():
         for (X, y) in dataset:
             X = X.to(device)
@@ -109,9 +114,10 @@ if __name__=='__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    learning_rate = 1e-4
-    N_epochs = 50
+    learning_rate = 2e-4
+    N_epochs = 10000
     batch_size = 100
+    patience = 100
 
     pred_path = "predictions"
 
@@ -128,11 +134,35 @@ if __name__=='__main__':
     loss_fn = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
 
+    best_val_loss = float('inf')
+    best_model_weights = None
+
+    loss_curve = open("loss_curve.dat","w")
+    loss_curve.write("#epoch training_loss validation_loss\n")
+
     for epoch in range(N_epochs):
         print(f"Epoch {epoch+1}\n---------------------")
         train_loss = train_loop(train_dataloader, model, loss_fn, optimizer, batch_size, device)
         print(f"Total train loss: {train_loss}")
         val_loss = val_loop(val_dataloader, model, loss_fn, device)
         print(f"Total validation loss: {val_loss}")
+
+        loss_curve.write(str(epoch+1) + " " + str(train_loss) + " " + str(val_loss) + "\n")
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_train_loss = train_loss
+            best_model_weights = copy.deepcopy(model.state_dict())
+            patience_curr = patience
+        else:
+            patience_curr -= 1
+            if patience_curr == 0:
+                break
+
+    loss_curve.close()
+
+    model.load_state_dict(best_model_weights)
+
+    torch.save(model.state_dict(), 'weights.pt')
 
     predict(val, model, pred_path, device)

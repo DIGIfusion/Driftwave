@@ -20,6 +20,7 @@ def dndt(X, pred):
             dndt[:,i] = dndt[:,i] + torch.autograd.grad(sample[i],X,retain_graph=True)[0][:,2] # For each sample in batch
 
     dndt[:,-1]=dndt[:,0] # Periodic boundary condition
+    dndt = 2e3 * dndt
     return dndt
 
 def comp_phi_dy(phi, order=4):
@@ -56,14 +57,16 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device):
         X = X.to(device)
         y = y.to(device)
 
+        #X.requires_grad = True
+
         pred = model(X)
         loss_data = loss_fn(pred,y)
 
-        #dn_dt = dndt(X, pred)
-        #drift_term = drift_X_grad(X,pred)
+        #dn_dt = dndt(X, pred)                                #time derivative
+        #drift_term = drift_X_grad(X,pred)                    #drift term in continuity equation
         #loss_constraint = loss_fn(dn_dt,drift_term)
 
-        #loss = loss_data + loss_constraint
+        #loss = loss_data + 1e-10 * loss_constraint
         loss = loss_data
 
         loss.backward()
@@ -72,7 +75,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device):
 
         loss, current = loss.item(), batch * batch_size + len(X)
         total_loss = total_loss + loss
-        #print(f"Batch train loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+        print(f"Batch train loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
 
     total_loss = total_loss/num_batches
     return total_loss

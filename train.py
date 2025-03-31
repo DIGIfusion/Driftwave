@@ -12,8 +12,9 @@ L_y = 1.0
 kygrid = torch.linspace(0, 2*pi*L_y, resolution)
 dky = torch.diff(kygrid)[0]/(2*pi*L_y)
 
-def dndt(X, pred):
+def dndt(X, pred, device):
     dndt = torch.zeros(len(pred),len(pred[0]))
+    dndt = dndt.to(device)
 
     for sample in pred:
         for i in range(len(pred[0])):
@@ -23,8 +24,9 @@ def dndt(X, pred):
     dndt = 2e3 * dndt
     return dndt
 
-def comp_phi_dy(phi, order=4):
+def comp_phi_dy(phi, device, order=4):
     dphidy = torch.zeros(len(phi),resolution)
+    dphidy = dphidy.to(device)
     if order==2:
         dphidy[:,1:-1] = (phi[:,2:] - phi[:,0:-2])/(2*dky)
         dphidy[:,0] = (phi[:,1] - phi[:,-2])/(2*dky)
@@ -42,9 +44,9 @@ def comp_phi(delta_n, T=100):
     phi = T*delta_n
     return phi
 
-def drift_X_grad(X, pred):
+def drift_X_grad(X, pred, device):
     phi = comp_phi(pred)
-    dphidy = comp_phi_dy(phi) #electric field
+    dphidy = comp_phi_dy(phi, device) #electric field
     drift_X_grad = (1./X[:,1]).unsqueeze(1)*dphidy #multiply by gradient
     drift_X_grad[:,-1] = drift_X_grad[:,0] #periodic boundary condition
     return drift_X_grad
@@ -62,8 +64,8 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device):
         pred = model(X)
         loss_data = loss_fn(pred,y)
 
-        #dn_dt = dndt(X, pred)                                #time derivative
-        #drift_term = drift_X_grad(X,pred)                    #drift term in continuity equation
+        #dn_dt = dndt(X, pred, device)                        #time derivative
+        #drift_term = drift_X_grad(X,pred,device)             #drift term in continuity equation
         #loss_constraint = loss_fn(dn_dt,drift_term)
 
         #loss = loss_data + 1e-10 * loss_constraint

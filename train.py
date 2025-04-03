@@ -24,6 +24,14 @@ def dndt(X, pred, device):
     dndt = 2e3 * dndt
     return dndt
 
+def dndt_jacobian(X, model):
+    jacobian = torch.autograd.functional.jacobian(model,X)
+    dndt = torch.sum(jacobian,2)[:,:,2] #sum over derivates w.r.t. all batches and extract time derivate
+    
+    dndt[:-1]=dndt[:,0] #periodic boundary condition
+    dndt = 2e3 * dndt #rescale to real time
+    return dndt
+
 def comp_phi_dy(phi, device, order=4):
     dphidy = torch.zeros(len(phi),resolution)
     dphidy = dphidy.to(device)
@@ -59,17 +67,18 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device):
         X = X.to(device)
         y = y.to(device)
 
-        #X.requires_grad = True
+        X.requires_grad = True
 
         pred = model(X)
         loss_data = loss_fn(pred,y)
 
-        #dn_dt = dndt(X, pred, device)                        #time derivative
-        #drift_term = drift_X_grad(X,pred,device)             #drift term in continuity equation
-        #loss_constraint = loss_fn(dn_dt,drift_term)
+        #dn_dt = dndt(X, pred, device)                        #time derivative using grad
+        dn_dt = dndt_jacobian(X, model)                       #time derivative using jacobian
+        drift_term = drift_X_grad(X,pred,device)             #drift term in continuity equation
+        loss_constraint = loss_fn(dn_dt,drift_term)
 
-        #loss = loss_data + 1e-10 * loss_constraint
-        loss = loss_data
+        loss = loss_data + 1e-10 * loss_constraint
+        #loss = loss_data
 
         loss.backward()
         optimizer.step()

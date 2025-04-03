@@ -28,7 +28,7 @@ def dndt_jacobian(X, model):
     jacobian = torch.autograd.functional.jacobian(model,X)
     dndt = torch.sum(jacobian,2)[:,:,2] #sum over derivates w.r.t. all batches and extract time derivate
     
-    dndt[:-1]=dndt[:,0] #periodic boundary condition
+    dndt[:,-1]=dndt[:,0] #periodic boundary condition
     dndt = 2e3 * dndt #rescale to real time
     return dndt
 

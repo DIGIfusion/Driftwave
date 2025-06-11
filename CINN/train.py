@@ -1,18 +1,8 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 from CINN import CINN
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from scipy.constants import pi
-
-
-# In[2]:
-
 
 class InitialDataset(Dataset):
     def __init__(self):
@@ -31,130 +21,61 @@ class InitialDataset(Dataset):
 
         return torch.stack((self.kygrid[index],t),-1), ntilde
 
-
-# In[3]:
-
-
-class BoundaryDataset(Dataset):
-    def __init__(self):
-        self.resolution = 2000
-        self.tgrid = torch.linspace(0,1e-3,self.resolution)
-
-    def __len__(self):
-        return len(self.tgrid)
-
-    def __getitem__(self,index):
-        return torch.stack((torch.tensor(0.0),self.tgrid[index]),-1), torch.stack((torch.tensor(2*pi),self.tgrid[index]),-1)
-
-
-# In[4]:
-
-
 def train_loop(dataloader, model, loss_fn, optimizer, batch_size):
+    t_res = 1000
+
     num_batches = len(dataloader)
-    total_loss = 0.0
+    total_initial_loss = 0.0
+    total_boundary_loss = 0.0
+
+    zero_grid = torch.zeros(t_res)
+    twopi_grid = torch.full((t_res,),2*pi)
+    t_grid = torch.linspace(0,1e-3,t_res)
+    zero_input = torch.stack((zero_grid,t_grid),axis=1)
+    twopi_input = torch.stack((twopi_grid,t_grid),axis=1)
+    
     for (X,y) in dataloader:
         pred = model(X)
-        loss = loss_fn(pred,y.unsqueeze(-1))
+        loss_initial = loss_fn(pred,y.unsqueeze(-1))
+
+        zero_output = model(zero_input)
+        twopi_output = model(twopi_input)
+        loss_boundary = loss_fn(zero_output,twopi_output)
+
+        loss = loss_initial + loss_boundary
 
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
         loss = loss.item()
-        total_loss = total_loss + loss
+        total_initial_loss = total_initial_loss + loss_initial
+        total_boundary_loss = total_boundary_loss + loss_boundary
 
-    total_loss = total_loss / num_batches
-    return total_loss
-
-
-# In[5]:
-
-
-def boundary_train_loop(dataloader, model, loss_fn, optimizer, batch_size):
-    num_batches = len(dataloader)
-    total_loss = 0.0
-    for (x0,xf) in dataloader:
-        pred0 = model(x0)
-        predf = model(xf)
-        loss = loss_fn(pred0,predf)
-
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-
-        loss = loss.item()
-        total_loss = total_loss + loss
-
-    total_loss = total_loss / num_batches
-    return total_loss
-
-
-# In[6]:
-
+    total_initial_loss = total_initial_loss / num_batches
+    total_boundary_loss = total_boundary_loss / num_batches
+    
+    return total_initial_loss, total_boundary_loss
 
 T = 100
 Ln = 0.01
 v = - 2*pi*T/Ln
 
-
-# In[7]:
-
-
 network = CINN(v)
-
-
-# In[8]:
-
 
 dataset = InitialDataset()
 
-
-# In[9]:
-
-
-boundary_dataset = BoundaryDataset()
-
-
-# In[10]:
-
-
-train_dataloader = DataLoader(dataset=dataset, batch_size=10, shuffle=True)
-
-
-# In[11]:
-
-
-boundary_dataloader = DataLoader(dataset=boundary_dataset, batch_size=10, shuffle=True)
-
-
-# In[12]:
-
+train_dataloader = DataLoader(dataset=dataset, batch_size=100, shuffle=True)
 
 loss_fn = nn.MSELoss()
-optimizer = torch.optim.Adam(network.parameters(), lr=2e-4)
+optimizer = torch.optim.Adam(network.parameters(), lr=1e-3)
 
-
-# In[ ]:
-
-
-for epoch in range(20000):
+for epoch in range(200000):
     print(f"Epoch: {epoch+1}")
     print("-----------------")
-    loss_initial = train_loop(train_dataloader, network, loss_fn, optimizer, 10)
+    loss_initial, loss_boundary = train_loop(train_dataloader, network, loss_fn, optimizer, 100)
     print(f"Initial condition loss: {loss_initial}")
-
-    loss_boundary = boundary_train_loop(boundary_dataloader, network, loss_fn, optimizer, 10)
     print(f"Boundary condition loss: {loss_boundary}")
-    
-    #loss_boundary = loss_fn(network(torch.tensor([0.0,1e-4])),network(torch.tensor([2*pi,1e-4])))
-    #loss_boundary.backward()
-    #optimizer.step()
-    #optimizer.zero_grad()
 
-
-# In[ ]:
-
-
-torch.save(network.state_dict(), 'weights_ky=1_lr=2e-4_res_t=2000.pt')
+torch.save(network.state_dict(), 'weights.pt')
 

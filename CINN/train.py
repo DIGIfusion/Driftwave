@@ -70,12 +70,18 @@ train_dataloader = DataLoader(dataset=dataset, batch_size=100, shuffle=True)
 loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(network.parameters(), lr=1e-3)
 
-for epoch in range(200000):
+file_out = open("learning_curve.dat","w")
+file_out.write("#epoch initial_condition_loss boundary_condition_loss\n")
+
+for epoch in range(1000):
     print(f"Epoch: {epoch+1}")
     print("-----------------")
     loss_initial, loss_boundary = train_loop(train_dataloader, network, loss_fn, optimizer, 100)
     print(f"Initial condition loss: {loss_initial}")
     print(f"Boundary condition loss: {loss_boundary}")
+    file_out.write(str(epoch+1) + " " + str(loss_initial.item()) + " " + str(loss_boundary.item()) + "\n")
+
+file_out.close()
 
 torch.save(network.state_dict(), 'weights.pt')
 

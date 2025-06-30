@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 from PINN import PINN
 from dataset import DriftwaveDataset
 import torch
@@ -11,14 +5,13 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from scipy.constants import pi
 
-
-# In[2]:
-
-
-def train_loop(dataloader, model, loss_fn, optimizer, batch_size):
+def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device):
     num_batches = len(dataloader)
     total_loss = 0.0
     for (X,y) in dataloader:
+        X = X.to(device)
+        y = y.to(device)
+
         pred = model(X)
         loss = loss_fn(pred,y.unsqueeze(-1))
 
@@ -33,43 +26,25 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size):
     return total_loss
 
 
-# In[3]:
+if __name__ == 'main': 
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-dataset = DriftwaveDataset()
+    dataset = DriftwaveDataset()
 
+    network = PINN()
+    network.to(device)
 
-# In[4]:
+    train_dataloader = DataLoader(dataset=dataset, batch_size=10, shuffle=True, num_workers=7)
 
+    loss_fn = nn.MSELoss()
+    optimizer = torch.optim.Adam(network.parameters(), lr=1e-3)
 
-network = PINN()
+    for epoch in range(50):
+        print(f"Epoch: {epoch+1}")
+        print("-----------------")
+        loss = train_loop(train_dataloader, network, loss_fn, optimizer, 10, device)
+        print(f"Loss: {loss}")
 
-
-# In[5]:
-
-
-train_dataloader = DataLoader(dataset=dataset, batch_size=10, shuffle=True)
-
-
-# In[6]:
-
-
-loss_fn = nn.MSELoss()
-optimizer = torch.optim.Adam(network.parameters(), lr=1e-3)
-
-
-# In[7]:
-
-
-for epoch in range(50):
-    print(f"Epoch: {epoch+1}")
-    print("-----------------")
-    loss = train_loop(train_dataloader, network, loss_fn, optimizer, 10)
-    print(f"Loss: {loss}")
-
-
-# In[ ]:
-
-
-torch.save(network.state_dict(), 'weights.pt')
+    torch.save(network.state_dict(), 'weights.pt')
 

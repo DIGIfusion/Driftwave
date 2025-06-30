@@ -5,7 +5,7 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from scipy.constants import pi
 
-def train_loop(dataloader, model, loss_fn, optimizer, batch_size, v):
+def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device, v):
     num_batches = len(dataloader)
     total_loss_data = total_loss_pinn = 0.0
     for (X,y) in dataloader:
@@ -55,7 +55,7 @@ if __name__=='__main__':
     for epoch in range(50):
         print(f"Epoch: {epoch+1}")
         print("-----------------")
-        loss_data, loss_pinn = train_loop(train_dataloader, network, loss_fn, optimizer, 10, v)
+        loss_data, loss_pinn = train_loop(train_dataloader, network, loss_fn, optimizer, 10, device, v)
         print(f"Data loss: {loss_data}, PINN loss: {loss_pinn}")
 
     torch.save(network.state_dict(), 'weights.pt')

@@ -26,7 +26,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device):
     return total_loss
 
 
-if __name__ == 'main': 
+if __name__ == '__main__': 
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 

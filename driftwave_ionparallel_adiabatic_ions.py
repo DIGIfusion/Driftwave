@@ -81,12 +81,12 @@ def comp_ve(phi, B=1.0):
 #     solution is a matrix [kygrid, kzgrid, equation_number]:
 #         equation number 0 is density
 #         equation number 1 is parallel momentum
-#         equation number 2 is ion energy
+#         equation number 2 is ion energy (not implemented here)
 def fun(t, solution, T, n, Ln, Lt, B, m, q):
 
-    solution = solution.reshape((resolution, resolution, 3))
+    solution = solution.reshape((resolution, resolution, 2))
     # Check the perturbation level
-    if np.max(np.abs(solution[:,:,0]))>0.1*n or np.max(np.abs(solution[:,:,2]))>0.1*T:
+    if np.max(np.abs(solution[:,:,0]))>0.1*n: # or np.max(np.abs(solution[:,:,2]))>0.1*T:
         return
 
     # Evaluate potential
@@ -100,7 +100,7 @@ def fun(t, solution, T, n, Ln, Lt, B, m, q):
     # Parallel gradients of density, velocity, and pressure
     dnz = comp_dz(solution[:,:,0])
     duz = comp_dz(solution[:,:,1])
-    dTz = comp_dz(solution[:,:,2])
+    #dTz = comp_dz(solution[:,:,2])
     
     # Sound speed for normalization
     cs = get_cref(T)
@@ -113,7 +113,8 @@ def fun(t, solution, T, n, Ln, Lt, B, m, q):
     # dudt is normalized to (1/cs) units.  
     #q_Ez = q*n*dphidz
     #Absolute units would be cs**2, but we compute dudt_abs in 1/cs space
-    dudt = -cs*(dTz/T + dnz/n + dphidz/T) 
+    gamma = 5/3
+    dudt = -cs*(gamma*dnz/n + dphidz/T) 
     #dudt =  (1/cs)*dudt_abs
 
     #dudt = dudt_abs
@@ -122,7 +123,7 @@ def fun(t, solution, T, n, Ln, Lt, B, m, q):
     #dTdt = (1/n)*(dpdt - T*dndt)
     # Adiabatic ions dpdt = gamma*T*dndt, where gamma = 5/3.
     # dTdt = (1/n)*(gamma*T*dndt) - (1/n)*T*dndt
-    dTdt = T*(5/3 - 1)*dndt/n
+    #dTdt = T*(5/3 - 1)*dndt/n
     #dTdt = -T*(5*cs*duz + ve*T/Lt)
     #dTdt = (1/n)*(-(5/3)*n*T*cs*duz - ve*T
     #dTdt = -T*2*duz + ve*T/Lt
@@ -131,10 +132,11 @@ def fun(t, solution, T, n, Ln, Lt, B, m, q):
     dndt[-1,:] = dndt[0,:]
     dudt[:,-1] = dudt[:,0]
     dudt[-1,:] = dudt[0,:]
-    dTdt[:,-1] = dTdt[:,0]
-    dTdt[-1,:] = dTdt[0,:]
+    #dTdt[:,-1] = dTdt[:,0]
+    #dTdt[-1,:] = dTdt[0,:]
     # Stack the solution and ravel as 1-D vector for output.
-    dvec = np.stack((dndt, dudt, dTdt), axis=2)
+    #dvec = np.stack((dndt, dudt, dTdt), axis=2)
+    dvec = np.stack((dndt, dudt), axis=2)
     return dvec.ravel()
 
 def forward_dt(solution, T, n, Ln, Lt, B, m, q, dt=1e-5, method='rk4'):
@@ -172,22 +174,22 @@ if __name__=='__main__':
     #n_tilde = 0.001*np.sin(ky*kygrid + kz*kzgrid)
     n_tilde = 0.001*np.exp(-(kygrid - pi)**2 - (kzgrid - pi)**2) 
     upar = 0.00*n_tilde.copy()
-    T_tilde = 0.00*n_tilde.copy()
-    S0 = np.stack((n_tilde, upar, T_tilde), axis=2)
-
+    #T_tilde = 0.00*n_tilde.copy()
+    #S0 = np.stack((n_tilde, upar, T_tilde), axis=2)
+    S0 = np.stack((n_tilde, upar), axis=2)
 
     if use_solve_ivp:
         sol = solve_ivp(fun, (0, 7.0e-2), S0.ravel(), vectorized=False, 
                     method='DOP853', args=(T, n, Ln, Lt, B, m, q)) 
         time = sol['t']
         solution = sol['y'] 
-        solution = solution.reshape((resolution, resolution, 3, len(sol['y'][0,:])))
+        solution = solution.reshape((resolution, resolution, 2, len(sol['y'][0,:])))
         for i in range(len(sol['y'][0,:,])):
             if i > 1000:
                 break
             plt.clf()
             plt.figure(2)
-            phi = comp_phi(sol['y'][:,i].reshape((resolution,resolution,3))[:,:,0])
+            phi = comp_phi(sol['y'][:,i].reshape((resolution,resolution,2))[:,:,0])
             if plot_contour:
                 plt.contourf(phi, cmap=mpl.colormaps['plasma'])
                 plt.xlabel('Z (parallel to B)')
@@ -209,7 +211,7 @@ if __name__=='__main__':
         phivec = []
         for i in range(nt):
             solution = forward_dt(solution, T, n, Ln, Lt, B, m, q, dt=1e-4)
-            solution1 = solution.reshape((resolution,resolution,3))
+            solution1 = solution.reshape((resolution,resolution,2))
             plt.clf()
             phi = comp_phi(solution1[:,:,0])
             if np.max(phi) > 1000:
